@@ -105,11 +105,22 @@ Test Boolean: false
 
 
 
-好用的Frida脚本：
+好用的Frida脚本，使用时请删除脚本中的中文字符，Frida的js解释器不支持中文：
 
 ```javascript
 const gettid = new NativeFunction(Module.findExportByName(null, "gettid"), "uint32", []);
 const getpid = new NativeFunction(Module.findExportByName(null, "getpid"), "uint32", []);
+
+function JThreadTrace2String(thread, tabsize) {
+  var tab_str = "";
+  var ret;
+  for (var i = 0; i < tabsize; i++) {
+    tab_str += "  ";
+  }
+  ret = tab_str + "Thread Stack Trace -> id:[" + gettid() + "], name:[" + thread.getName() + "]\n";
+  ret += tab_str + "  " + thread.getStackTrace().join("\n" + tab_str + "  ");
+  return ret;
+}
 
 const JNIEnv = NULL;
 const JNIEnvPtr = NULL;
@@ -155,17 +166,6 @@ var jCursorAdapter;
 var jView;
 var jLayoutInflater;
 
-function JThreadTrace2String(thread, tabsize) {
-  var tab_str = "";
-  var ret;
-  for (var i = 0; i < tabsize; i++) {
-    tab_str += "  ";
-  }
-  ret = tab_str + "Thread Stack Trace -> id:[" + gettid() + "], name:[" + thread.getName() + "]\n";
-  ret += tab_str + "  " + thread.getStackTrace().join("\n" + tab_str + "  ");
-  return ret;
-}
-
 Java.perform(function () {
   // JavaScript wrapper Of Java Primitive Classes.
   jBoolean = Java.use("java.lang.Boolean");
@@ -209,8 +209,6 @@ Java.perform(function () {
   jBase64 = Java.use("android.util.Base64");
 });
 
-
-
 Java.perform(function () {
   const nativeHook_RegisterNatives = {
     onEnter: function (args) {
@@ -239,14 +237,16 @@ Java.perform(function () {
         this.log += "      methodPtr: " + methodPtr + ", off: " + methodPtr.sub(methodMod.base) + "\n";
         this.log += "      methodLib: " + methodMod.name + ", base: " + methodMod.base + "\n";
         this.log += "\n";
-        if (methodName === "_8a593c5e38dc0a884508b96483e3292c17") {
-          Interceptor.attach(methodPtr, nativeHook_8a593c5e38dc0a884508b96483e3292c17);
-        } else if (methodName === "_4d13d8b0bdcec28da0dd04f51a23c83f7") {
-          Interceptor.attach(methodPtr, nativeHook_4d13d8b0bdcec28da0dd04f51a23c83f7);
-        } else if (methodName === '_91151e728fa0ffa08ae6d7c21b4246fc6')
-          Interceptor.attach(methodPtr, nativeHook_91151e728fa0ffa08ae6d7c21b4246fc6);
+        // 可以在这里Hook那些被动态注册的函数
+        //if (methodName === "_8a593c5e38dc0a884508b96483e3292c17") {
+        //  Interceptor.attach(methodPtr, nativeHook_8a593c5e38dc0a884508b96483e3292c17);
+        //} else if (methodName === "_4d13d8b0bdcec28da0dd04f51a23c83f7") {
+        //  Interceptor.attach(methodPtr, nativeHook_4d13d8b0bdcec28da0dd04f51a23c83f7);
+        //} else if (methodName === '_91151e728fa0ffa08ae6d7c21b4246fc6') {
+        //  Interceptor.attach(methodPtr, nativeHook_91151e728fa0ffa08ae6d7c21b4246fc6);
+        //}
       }
-
+      // 打开这里的日志可以看到所有被动态注册的函数
       //console.log(this.log);
     },
     onLeave: function (ret) {
@@ -255,6 +255,7 @@ Java.perform(function () {
       this.log += this.tag + " Leave.\n";
       this.log += "  ret: " + ret + "\n";
       this.log += "^ - - - - tid:[" + tid + "] - - - - ^\n";
+      // 打开这里的日志可以看到所有被动态注册的函数
       //console.log(this.log);
     }
   };
