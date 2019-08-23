@@ -29,7 +29,7 @@
 
 3个特殊用途的32位寄存器：`SP`，`LR`和`PC`，可以描述为`R13`，`R14`和`R15`
 
-### `LDMFD`
+### LDMFD
 
 ARM指令集：
 
@@ -89,9 +89,7 @@ IDA中显示如下指令：
 
 ### 获取 `Java` 基础数据类型的 `Class`；例如: `int.class`
 
-在 `Java` 中，基础数据类型的 `Class` 与其包装类的 `TYPE` 字段等价；
-
-Java 示例：
+在 `Java` 中，基础数据类型的 `Class` 与其包装类的 `TYPE` 字段等价；例如：
 
 ```java
 System.out.println("Test boolean: " + (boolean.class == java.lang.Boolean.TYPE));
@@ -107,29 +105,178 @@ Test Boolean: false
 
 
 
-Frida 示例：在 `Frida` 中通过反射获取 `java.util.List.get` 方法
+好用的Frida脚本：
 
-```JavaScript
-Java.perform(function() {
-  var IntegerClz = Java.use("java.lang.Integer")["class"];
-  var ListClz = Java.use("java.util.List")["class"];
-  var Integer$TYPE = IntegerClz.getDeclaredField("TYPE").get(null);
+```javascript
+const gettid = new NativeFunction(Module.findExportByName(null, "gettid"), "uint32", []);
+const getpid = new NativeFunction(Module.findExportByName(null, "getpid"), "uint32", []);
 
-  // 因为 Integer$TYPE 在 Frida 中的数据类型是 `Ljava.lang.Object;`
-  // 这将导致 Frida 无法自动重载 `[Ljava.lang.Class;`
-  // 所以这里需要 overload().call() 强制调用；
-  var ListGetMethod = ListClz.getDeclaredMethod
-      .overload('java.lang.String', '[Ljava.lang.Class;')
-      .call(ListClz, "get", [Integer$TYPE]);
-  console.log(ListGetMethod);
+const JNIEnv = NULL;
+const JNIEnvPtr = NULL;
+const JNIEnvVftablePtr = NULL;
+const RegisterNatives = NULL;
+const GetStringUTFChars = NULL;
+
+var jBoolean;
+var jCharacter;
+var jByte;
+var jShort;
+var jInteger;
+var jLong;
+var jFloat;
+var jDouble;
+
+var jAccessibleObject;
+var jArray;
+var jField;
+var jMethod;
+
+var jThread;
+var jString;
+var jClass;
+var jCharSequence;
+
+var jFile;
+var jFileOutputStream;
+
+var jHashMap;
+var jSet;
+var jIterator;
+var jZipOutputStream;
+
+var jURLEncoder;
+
+var jContext;
+var jApplication;
+var jLog;
+var jBase64;
+var jCursor;
+var jCursorAdapter;
+var jView;
+var jLayoutInflater;
+
+function JThreadTrace2String(thread, tabsize) {
+  var tab_str = "";
+  var ret;
+  for (var i = 0; i < tabsize; i++) {
+    tab_str += "  ";
+  }
+  ret = tab_str + "Thread Stack Trace -> id:[" + gettid() + "], name:[" + thread.getName() + "]\n";
+  ret += tab_str + "  " + thread.getStackTrace().join("\n" + tab_str + "  ");
+  return ret;
+}
+
+Java.perform(function () {
+  // JavaScript wrapper Of Java Primitive Classes.
+  jBoolean = Java.use("java.lang.Boolean");
+  jCharacter = Java.use("java.lang.Character");
+  jByte = Java.use("java.lang.Byte");
+  jShort = Java.use("java.lang.Short");
+  jInteger = Java.use("java.lang.Integer");
+  jLong = Java.use("java.lang.Long");
+  jFloat = Java.use("java.lang.Float");
+  jDouble = Java.use("java.lang.Double");
+
+  // JavaScript wrapper Of Java Reflection.
+  jAccessibleObject = Java.use("java.lang.reflect.AccessibleObject");
+  jArray = Java.use("java.lang.reflect.Array");
+  jField = Java.use("java.lang.reflect.Field");
+  jMethod = Java.use("java.lang.reflect.Method");
+
+  jThread = Java.use("java.lang.Thread");
+  jString = Java.use("java.lang.String");
+  jClass = Java.use("java.lang.Class");
+  jCharSequence = Java.use("java.lang.CharSequence");
+
+  jFile = Java.use("java.io.File");
+  jFileOutputStream = Java.use("java.io.FileOutputStream");
+
+  jHashMap = Java.use("java.util.HashMap");
+  jSet = Java.use("java.util.Set");
+  jIterator = Java.use("java.util.Iterator");
+  jZipOutputStream = Java.use("java.util.zip.ZipOutputStream");
+
+  jURLEncoder = Java.use("java.net.URLEncoder");
+
+  jContext = Java.use("android.content.Context");
+  jApplication = Java.use("android.app.Application");
+  jCursor = Java.use("android.database.Cursor");
+  jCursorAdapter = Java.use("android.widget.CursorAdapter");
+
+  jLayoutInflater = Java.use("android.view.LayoutInflater");
+  jView = Java.use("android.view.View");
+  jLog = Java.use("android.util.Log");
+  jBase64 = Java.use("android.util.Base64");
+});
+
+
+
+Java.perform(function () {
+  const nativeHook_RegisterNatives = {
+    onEnter: function (args) {
+      this.tag = "libart.RegisterNatives";
+      this.log = "";
+      const tid = gettid();
+      this.env = args[0];
+      this.clazz = args[1];
+      this.methods = args[2];
+      this.nMethods = parseInt(args[3]);
+
+      this.log += "> - - - - tid:[" + tid + "] - - - - <\n";
+      this.log += this.tag + " Enter.\n";
+      this.log += "  env: " + this.env + "\n";
+      this.log += "  clazz: " + Java.vm.getEnv().getClassName(this.clazz) + "\n";
+      this.log += "  methods: " + this.methods + "\n";
+      this.log += "  nMethods: " + this.nMethods + "\n";
+      for (var i = 0; i < this.nMethods; i++) {
+        const methodName = this.methods.add(i * (Process.pointerSize * 3)).readPointer().readCString();
+        const methodSig = this.methods.add(i * (Process.pointerSize * 3) + (Process.pointerSize * 1)).readPointer().readCString();
+        const methodPtr = this.methods.add(i * (Process.pointerSize * 3) + (Process.pointerSize * 2)).readPointer();
+        const methodMod = Process.findModuleByAddress(methodPtr);
+        this.log += "    " + (i + 1) + ":\n";
+        this.log += "      methodName: " + methodName + "\n";
+        this.log += "      methodSig: " + methodSig + "\n";
+        this.log += "      methodPtr: " + methodPtr + ", off: " + methodPtr.sub(methodMod.base) + "\n";
+        this.log += "      methodLib: " + methodMod.name + ", base: " + methodMod.base + "\n";
+        this.log += "\n";
+        if (methodName === "_8a593c5e38dc0a884508b96483e3292c17") {
+          Interceptor.attach(methodPtr, nativeHook_8a593c5e38dc0a884508b96483e3292c17);
+        } else if (methodName === "_4d13d8b0bdcec28da0dd04f51a23c83f7") {
+          Interceptor.attach(methodPtr, nativeHook_4d13d8b0bdcec28da0dd04f51a23c83f7);
+        } else if (methodName === '_91151e728fa0ffa08ae6d7c21b4246fc6')
+          Interceptor.attach(methodPtr, nativeHook_91151e728fa0ffa08ae6d7c21b4246fc6);
+      }
+
+      //console.log(this.log);
+    },
+    onLeave: function (ret) {
+      this.log = "";
+      const tid = gettid();
+      this.log += this.tag + " Leave.\n";
+      this.log += "  ret: " + ret + "\n";
+      this.log += "^ - - - - tid:[" + tid + "] - - - - ^\n";
+      //console.log(this.log);
+    }
+  };
+  JNIEnv = Java.vm.getEnv();
+  JNIEnvPtr = JNIEnv.handle;
+  JNIEnvVftablePtr = JNIEnvPtr.readPointer();
+  RegisterNatives = new NativeFunction(JNIEnvVftablePtr.add(215 * Process.pointerSize).readPointer(),
+    'pointer', ['pointer', 'pointer', 'pointer', 'int']);
+  GetStringUTFChars = new NativeFunction(JNIEnvVftablePtr.add(169 * Process.pointerSize).readPointer(),
+    'pointer', ['pointer', 'pointer', 'pointer']);
+  Interceptor.attach(RegisterNatives, nativeHook_RegisterNatives);
+
+  const log = "";
+  log += "pid: " + getpid() + "\n";
+  log += "tid: " + gettid() + "\n";
+  log += "JNIEnvPtr: " + JNIEnvPtr + "\n";
+  log += "JNIEnvVftablePtr: " + JNIEnvVftablePtr + "\n";
+  console.log(log);
 });
 ```
 
-Frida输出：
 
-```java
-public abstract java.lang.Object java.util.List.get(int)
-```
 
 
 
@@ -213,7 +360,44 @@ start adbd
 
 ### Native
 
-对于Native函数
+静态注册或动态注册的Native函数，第二个参数总是一个`jobject`，标识了调用者的信息；例如：
+
+```java
+private native String TestNative(int arg1, int arg2, String arg3);
+```
+
+在frida hook时：
+
+```javascript
+const nativeHook_TestNative = {
+  onEnter: function (args) {
+    this.env = args[0];
+    //this.caller = args[1]; // jobject of the caller.
+    this.arg1 = args[2];
+    this.arg2 = args[3];
+    this.arg3 = args[4];
+    this.tag = "nativeHook_TestNative";
+    this.log = "";
+    const tid = gettid();
+    this.log += "> - - - - tid:[" + tid + "] - - - - <\n";
+    this.log += this.tag + " Enter.\n";
+    this.log += "  env: " + this.env + "\n";
+    this.log += "  arg1: " + this.arg1 + "\n";
+    this.log += "  arg2: " + this.arg2 + "\n";
+    this.log += "  arg3: " + this.arg3 + ", " + GetStringUTFChars(this.env, this.arg3, NULL).readCString() + "\n";
+    console.log(this.log);
+  },
+  onLeave: function (ret) {
+    const tid = gettid();
+    this.log = this.tag + " Leave.\n";
+    this.log += "  ret: " + ret + ", str:" + GetStringUTFChars(this.env, ret, NULL).readCString() + "\n";
+    this.log += "^ - - - - tid:[" + tid + "] - - - - ^\n";
+    console.log(this.log);
+  }
+};
+```
+
+
 
 ## Batch
 
