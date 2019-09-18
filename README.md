@@ -643,3 +643,10 @@ Bob
 
 ```
 
+## so export symbol
+查看 so 的导出符号：
+`objdump -T <xxx.so>`
+
+## un gcc name mangling
+反命名粉碎：
+`c++filt <mangled names>`
