@@ -1,3 +1,3 @@
 # MakeThings
 
-请参看我们的wiki
+请参看我们的[MakeThings.Wiki](./wiki)
